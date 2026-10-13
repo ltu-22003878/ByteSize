@@ -17,15 +17,54 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Ids are short readable text (daily_checkin) because the site already uses them.
 CREATE TABLE IF NOT EXISTS activities (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
+  category TEXT NOT NULL DEFAULT '',
   duration TEXT NOT NULL DEFAULT '',
-  xp INTEGER NOT NULL CHECK (xp >= 0 AND xp <= 500),
+  base_xp INTEGER NOT NULL CHECK (base_xp >= 0 AND base_xp <= 1000),
+  type TEXT NOT NULL CHECK (type IN ('daily','one_time','repeatable')),
+  daily_limit INTEGER NOT NULL DEFAULT 1 CHECK (daily_limit >= 1),
+  cooldown_minutes INTEGER NOT NULL DEFAULT 0 CHECK (cooldown_minutes >= 0),
+  requires_capability TEXT,
   requires_marking INTEGER NOT NULL DEFAULT 0,
   active INTEGER NOT NULL DEFAULT 1,
   created_by INTEGER REFERENCES users(id)
+);
+
+-- Work an educator or employer sets for one student, with bonus XP on top.
+CREATE TABLE IF NOT EXISTS assignments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  activity_id TEXT NOT NULL REFERENCES activities(id),
+  assigned_by INTEGER NOT NULL REFERENCES users(id),
+  note TEXT NOT NULL DEFAULT '',
+  due_date TEXT,
+  bonus_xp INTEGER NOT NULL DEFAULT 0 CHECK (bonus_xp >= 0 AND bonus_xp <= 100),
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','submitted','completed')),
+  created_at TEXT NOT NULL
+);
+
+-- Every attempt that passed the rules. once_key and daily_key are what the
+-- database itself uses to stop a one-time activity being claimed twice, or a
+-- daily one twice in a day, even if two requests arrive together. They stay
+-- empty for repeatable activities, so those are not blocked by the keys.
+CREATE TABLE IF NOT EXISTS claims (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  activity_id TEXT NOT NULL REFERENCES activities(id),
+  assignment_id INTEGER REFERENCES assignments(id),
+  status TEXT NOT NULL CHECK (status IN ('pending','approved','rejected')),
+  points INTEGER NOT NULL,
+  evidence TEXT NOT NULL DEFAULT '',
+  day TEXT NOT NULL,
+  once_key TEXT,
+  daily_key TEXT,
+  created_at TEXT NOT NULL,
+  UNIQUE (user_id, once_key),
+  UNIQUE (user_id, daily_key)
 );
 
 -- The XP ledger: every XP change is a row. A student's total is the sum,
@@ -33,21 +72,12 @@ CREATE TABLE IF NOT EXISTS activities (
 CREATE TABLE IF NOT EXISTS xp_ledger (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id),
-  activity_id INTEGER REFERENCES activities(id),
+  activity_id TEXT REFERENCES activities(id),
+  claim_id INTEGER REFERENCES claims(id),
   points INTEGER NOT NULL,
   reason TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
--- One claim per student per activity: enforced by the database itself.
-CREATE TABLE IF NOT EXISTS claims (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL REFERENCES users(id),
-  activity_id INTEGER NOT NULL REFERENCES activities(id),
-  status TEXT NOT NULL CHECK (status IN ('pending','approved','rejected')),
-  evidence TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  UNIQUE (user_id, activity_id)
+  day TEXT NOT NULL,
+  created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS marks (
@@ -61,7 +91,7 @@ CREATE TABLE IF NOT EXISTS marks (
 );
 
 CREATE TABLE IF NOT EXISTS gigs (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
   poster_name TEXT NOT NULL,
   poster_org TEXT NOT NULL DEFAULT '',
@@ -69,14 +99,15 @@ CREATE TABLE IF NOT EXISTS gigs (
   tier TEXT NOT NULL DEFAULT 'Starter',
   timeframe TEXT NOT NULL DEFAULT '',
   pay TEXT NOT NULL DEFAULT '',
-  tags TEXT NOT NULL DEFAULT ''
+  tags TEXT NOT NULL DEFAULT '',
+  requires_capability TEXT
 );
 
 -- status 'active' means the student currently holds the gig.
 CREATE TABLE IF NOT EXISTS gig_applications (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id),
-  gig_id INTEGER NOT NULL REFERENCES gigs(id),
+  gig_id TEXT NOT NULL REFERENCES gigs(id),
   status TEXT NOT NULL CHECK (status IN ('active','completed','withdrawn')),
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE (user_id, gig_id)

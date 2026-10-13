@@ -1,69 +1,150 @@
 const express = require("express");
 const { audit, totalXp, isConstraintError } = require("../db");
-const { getLevelInfo, unlocksForLevel, isUnlocked } = require("../xp");
+const { getLevelInfo, capabilitiesFor, capability, CAPABILITIES, RULES, dayKey, currentStreak, evaluateClaim } = require("../xp");
 
+// Same options as the site's avatarOptions (ByteSize repo, src/db.js).
 const AVATAR_OPTIONS = {
-  skin: ["light", "tan", "almond", "brown", "deep"],
-  hairColor: ["black", "brown", "blonde", "red", "purple"],
-  hairStyle: ["bald", "short", "long", "mohawk"],
-  face: ["neutral", "happy", "surprised"],
-  outfit: ["purple", "orange", "green", "blue", "slate"],
+  skin: ["#f5cfa0", "#e0ac69", "#c68642", "#8d5524", "#5a3825"],
+  hair: ["#2b2320", "#5a3825", "#8b5e34", "#c9a15a", "#c2410c"],
+  hairStyle: ["short", "long", "curly", "bald"],
+  outfit: ["#7c3aed", "#10b981", "#3b82f6", "#f59e0b", "#ef4444"],
   accessory: ["none", "glasses", "cap"],
 };
-// Items that need a level unlock before they can be saved.
-const ITEM_UNLOCKS = { cap: "avatar_cap", glasses: "avatar_glasses", mohawk: "avatar_mohawk" };
-const DEFAULT_AVATAR = { skin: "tan", hairColor: "purple", hairStyle: "short", face: "happy", outfit: "purple", accessory: "none" };
+const DEFAULT_AVATAR = { skin: "#e0ac69", hair: "#2b2320", hairStyle: "short", outfit: "#7c3aed", accessory: "none" };
 
-function studentRoutes(db, { claimLimiter }) {
+// Which HTTP status each refusal uses. The body always carries the code and message.
+const DENIAL_STATUS = { not_found: 404, locked: 403, already_claimed: 409, daily_limit: 429, cooldown: 429, xp_cap: 429, bad_assignment: 400 };
+
+function studentRoutes(db, { claimLimiter, clock }) {
   const r = express.Router();
 
+  // Everything the rules need to know about one student and one activity.
+  function claimContext(userId, activity, now, assignmentId) {
+    const today = dayKey(now);
+    const info = getLevelInfo(totalXp(db, userId));
+    const live = "status IN ('pending','approved')";
+    const ever = db.prepare(`SELECT COUNT(*) AS n, MAX(created_at) AS last FROM claims WHERE user_id = ? AND activity_id = ? AND ${live}`).get(userId, activity.id);
+    const todays = db.prepare(`SELECT COUNT(*) AS n FROM claims WHERE user_id = ? AND activity_id = ? AND day = ? AND ${live}`).get(userId, activity.id, today);
+    const dailyXp = db.prepare("SELECT COALESCE(SUM(points),0) AS n FROM xp_ledger WHERE user_id = ? AND day = ?").get(userId, today).n;
+    let assignment = null;
+    if (assignmentId !== null && assignmentId !== undefined) {
+      assignment = db.prepare("SELECT * FROM assignments WHERE id = ? AND user_id = ?").get(assignmentId, userId) || null;
+    }
+    return {
+      activity, level: info.level, now, dailyXp,
+      everCount: ever.n, todayCount: todays.n, lastClaimAt: ever.last ? Date.parse(ever.last) : null,
+      streak: streakFor(userId, today), assignment, assignmentRequested: assignmentId !== null && assignmentId !== undefined,
+    };
+  }
+
+  function streakFor(userId, today) {
+    const rows = db.prepare(`SELECT DISTINCT c.day FROM claims c JOIN activities a ON a.id = c.activity_id
+                             WHERE c.user_id = ? AND a.type = 'daily' AND c.status IN ('pending','approved')`).all(userId);
+    return currentStreak(new Set(rows.map((x) => x.day)), today);
+  }
+
   r.get("/me", (req, res) => {
+    const now = clock();
+    const today = dayKey(now);
     const info = getLevelInfo(totalXp(db, req.user.id));
     const av = db.prepare("SELECT config FROM avatars WHERE user_id = ?").get(req.user.id);
-    res.json({ user: req.user, ...info, unlocks: unlocksForLevel(info.level), avatar: av ? JSON.parse(av.config) : DEFAULT_AVATAR });
-  });
-
-  r.get("/activities", (req, res) => {
-    const rows = db.prepare(`
-      SELECT a.id, a.title, a.description, a.duration, a.xp, a.requires_marking AS requiresMarking,
-             c.status AS claimStatus
-      FROM activities a
-      LEFT JOIN claims c ON c.activity_id = a.id AND c.user_id = ?
-      WHERE a.active = 1 ORDER BY a.id`).all(req.user.id);
-    res.json(rows.map((a) => ({ ...a, requiresMarking: !!a.requiresMarking, status: a.claimStatus || "open" })));
-  });
-
-  // Core rule: one claim per student per activity, XP awarded by the server only.
-  r.post("/activities/:id/claim", claimLimiter || ((_q, _s, n) => n()), (req, res) => {
-    const activity = db.prepare("SELECT * FROM activities WHERE id = ? AND active = 1").get(req.params.id);
-    if (!activity) return res.status(404).json({ error: "Activity not found" });
-    const evidence = typeof req.body?.evidence === "string" ? req.body.evidence.slice(0, 1000) : "";
-    if (activity.requires_marking && evidence.trim().length === 0) return res.status(400).json({ error: "This activity needs evidence for an educator to mark" });
-
-    const before = getLevelInfo(totalXp(db, req.user.id));
-    const run = db.transaction(() => {
-      const status = activity.requires_marking ? "pending" : "approved";
-      db.prepare("INSERT INTO claims (user_id, activity_id, status, evidence) VALUES (?,?,?,?)").run(req.user.id, activity.id, status, evidence);
-      if (status === "approved") {
-        db.prepare("INSERT INTO xp_ledger (user_id, activity_id, points, reason) VALUES (?,?,?,?)").run(req.user.id, activity.id, activity.xp, `Claimed: ${activity.title}`);
-      }
-      audit(db, req.user.id, "claim", `activity=${activity.id} status=${status}`);
-      return status;
+    const dailyXp = db.prepare("SELECT COALESCE(SUM(points),0) AS n FROM xp_ledger WHERE user_id = ? AND day = ?").get(req.user.id, today).n;
+    res.json({
+      user: req.user, ...info,
+      capabilities: capabilitiesFor(info.level),
+      streak: streakFor(req.user.id, today),
+      dailyXp, dailyXpCap: RULES.dailyXpCap,
+      avatar: av ? JSON.parse(av.config) : DEFAULT_AVATAR,
     });
-    let status;
+  });
+
+  // Each activity comes with a "check": whether the student could claim it right
+  // now and, if not, why. The site uses this to grey out its buttons.
+  r.get("/activities", (req, res) => {
+    const now = clock();
+    const rows = db.prepare("SELECT * FROM activities WHERE active = 1 ORDER BY rowid").all();
+    res.json(rows.map((a) => {
+      const check = evaluateClaim(claimContext(req.user.id, a, now));
+      const pending = db.prepare("SELECT COUNT(*) AS n FROM claims WHERE user_id = ? AND activity_id = ? AND status = 'pending'").get(req.user.id, a.id).n > 0;
+      return {
+        id: a.id, title: a.title, description: a.description, category: a.category, duration: a.duration,
+        baseXp: a.base_xp, type: a.type, dailyLimit: a.daily_limit, cooldownMinutes: a.cooldown_minutes,
+        requiresCapability: a.requires_capability, requiresMarking: !!a.requires_marking, pending,
+        check: check.ok ? { ok: true, points: check.points } : { ok: false, code: check.code, message: check.message, ...(check.minLevel ? { minLevel: check.minLevel } : {}) },
+      };
+    }));
+  });
+
+  r.get("/assignments", (req, res) => {
+    const rows = db.prepare(`
+      SELECT s.id, s.activity_id AS activityId, s.note, s.due_date AS dueDate, s.bonus_xp AS bonusXp, s.status,
+             u.name AS assignedBy, u.role AS assignerRole
+      FROM assignments s JOIN users u ON u.id = s.assigned_by
+      WHERE s.user_id = ? ORDER BY s.id`).all(req.user.id);
+    res.json(rows.map((a) => ({ ...a, assignerRole: a.assignerRole === "employer" ? "Employer" : "Educator" })));
+  });
+
+  // Core rule: the server decides if a claim is allowed and how much it is worth.
+  // Nothing the client sends can change the amount.
+  r.post("/activities/:id/claim", claimLimiter || ((_q, _s, n) => n()), (req, res) => {
+    const now = clock();
+    const today = dayKey(now);
+    const body = req.body || {};
+    const evidence = typeof body.evidence === "string" ? body.evidence.slice(0, 1000) : "";
+    let assignmentId = null;
+    if (body.assignmentId !== undefined && body.assignmentId !== null) {
+      if (!Number.isInteger(body.assignmentId)) return res.status(400).json({ error: "assignmentId must be a whole number", code: "bad_assignment" });
+      assignmentId = body.assignmentId;
+    }
+
+    const run = db.transaction(() => {
+      const activity = db.prepare("SELECT * FROM activities WHERE id = ? AND active = 1").get(req.params.id);
+      if (!activity) return { denied: { code: "not_found", message: "That activity isn't available." } };
+      const check = evaluateClaim(claimContext(req.user.id, activity, now, assignmentId));
+      if (!check.ok) {
+        audit(db, req.user.id, "claim_denied", `activity=${activity.id} code=${check.code}`);
+        return { denied: check };
+      }
+      if (activity.requires_marking && evidence.trim().length === 0) return { needsEvidence: true };
+
+      const before = getLevelInfo(totalXp(db, req.user.id));
+      const status = activity.requires_marking ? "pending" : "approved";
+      const info = db.prepare(`INSERT INTO claims (user_id, activity_id, assignment_id, status, points, evidence, day, once_key, daily_key, created_at)
+                               VALUES (?,?,?,?,?,?,?,?,?,?)`).run(
+        req.user.id, activity.id, assignmentId, status, check.points, evidence, today,
+        activity.type === "one_time" ? activity.id : null,
+        activity.type === "daily" ? `${activity.id}:${today}` : null,
+        now.toISOString(),
+      );
+      if (status === "approved") {
+        db.prepare("INSERT INTO xp_ledger (user_id, activity_id, claim_id, points, reason, day, created_at) VALUES (?,?,?,?,?,?,?)")
+          .run(req.user.id, activity.id, Number(info.lastInsertRowid), check.points, activity.title, today, now.toISOString());
+      }
+      if (assignmentId !== null) db.prepare("UPDATE assignments SET status = ? WHERE id = ?").run(status === "approved" ? "completed" : "submitted", assignmentId);
+      audit(db, req.user.id, "claim", `activity=${activity.id} status=${status} points=${check.points}`);
+      return { activity, status, points: check.points, before };
+    });
+
+    let out;
     try {
-      status = run();
+      out = run();
     } catch (e) {
-      if (isConstraintError(e)) return res.status(409).json({ error: "You have already claimed this activity" });
+      // The database's own once-only keys caught a duplicate the checks missed.
+      if (isConstraintError(e)) return res.status(409).json({ error: "You've already claimed this one.", code: "already_claimed" });
       throw e;
     }
+    if (out.needsEvidence) return res.status(400).json({ error: "This activity needs evidence for an educator to mark", code: "evidence_required" });
+    if (out.denied) return res.status(DENIAL_STATUS[out.denied.code] || 400).json({ error: out.denied.message, code: out.denied.code, ...(out.denied.minLevel ? { minLevel: out.denied.minLevel } : {}) });
+
     const after = getLevelInfo(totalXp(db, req.user.id));
     res.status(201).json({
-      status,
-      xpAwarded: status === "approved" ? activity.xp : 0,
+      status: out.status,
+      points: out.status === "approved" ? out.points : 0,
+      pendingPoints: out.status === "pending" ? out.points : 0,
+      activityTitle: out.activity.title,
       ...after,
-      leveledUp: after.level > before.level,
-      newUnlocks: unlocksForLevel(after.level).filter((u) => !unlocksForLevel(before.level).includes(u)),
+      leveledUp: after.level > out.before.level,
+      unlocked: CAPABILITIES.filter((c) => c.minLevel > out.before.level && c.minLevel <= after.level).map((c) => c.label),
     });
   });
 
@@ -71,18 +152,23 @@ function studentRoutes(db, { claimLimiter }) {
     const rows = db.prepare(`
       SELECT g.*, ga.status AS applicationStatus
       FROM gigs g LEFT JOIN gig_applications ga ON ga.gig_id = g.id AND ga.user_id = ?
-      ORDER BY g.id`).all(req.user.id);
+      ORDER BY g.rowid`).all(req.user.id);
     res.json(rows.map((g) => ({
       id: g.id, title: g.title, posterName: g.poster_name, posterOrg: g.poster_org, description: g.description,
       tier: g.tier, timeframe: g.timeframe, pay: g.pay, tags: g.tags ? g.tags.split(",") : [],
+      requiresCapability: g.requires_capability,
       applied: g.applicationStatus === "active", applicationStatus: g.applicationStatus || null,
     })));
   });
 
-  // Team decision (Sat 10 Oct): one gig at a time per student.
+  // Team decision (Sat 10 Oct): one gig at a time per student. The site's gigs
+  // are also locked behind a level, so check that first.
   r.post("/gigs/:id/apply", (req, res) => {
-    const gig = db.prepare("SELECT id FROM gigs WHERE id = ?").get(req.params.id);
+    const gig = db.prepare("SELECT id, requires_capability FROM gigs WHERE id = ?").get(req.params.id);
     if (!gig) return res.status(404).json({ error: "Gig not found" });
+    const cap = capability(gig.requires_capability);
+    const level = getLevelInfo(totalXp(db, req.user.id)).level;
+    if (cap && level < cap.minLevel) return res.status(403).json({ error: `Unlocks at Level ${cap.minLevel}.`, code: "locked", minLevel: cap.minLevel });
     const run = db.transaction(() => {
       const active = db.prepare("SELECT gig_id FROM gig_applications WHERE user_id = ? AND status = 'active'").get(req.user.id);
       if (active) return { error: active.gig_id === gig.id ? "You have already applied to this gig" : "You can only hold one gig at a time. Withdraw or finish your current gig first." };
@@ -111,12 +197,9 @@ function studentRoutes(db, { claimLimiter }) {
 
   r.put("/me/avatar", (req, res) => {
     const cfg = req.body || {};
-    const level = getLevelInfo(totalXp(db, req.user.id)).level;
     const clean = {};
     for (const [key, allowed] of Object.entries(AVATAR_OPTIONS)) {
       if (!allowed.includes(cfg[key])) return res.status(400).json({ error: `Invalid ${key}`, allowed });
-      const needs = ITEM_UNLOCKS[cfg[key]];
-      if (needs && !isUnlocked(needs, level)) return res.status(403).json({ error: `"${cfg[key]}" is not unlocked at level ${level}` });
       clean[key] = cfg[key];
     }
     db.prepare("INSERT INTO avatars (user_id, config) VALUES (?,?) ON CONFLICT(user_id) DO UPDATE SET config = excluded.config").run(req.user.id, JSON.stringify(clean));
@@ -133,7 +216,7 @@ function studentRoutes(db, { claimLimiter }) {
     const { body, shared } = req.body || {};
     if (typeof body !== "string" || body.trim().length === 0 || body.length > 5000) return res.status(400).json({ error: "Entry text is required (max 5000 characters)" });
     const info = db.prepare("INSERT INTO diary_entries (user_id, body, shared) VALUES (?,?,?)").run(req.user.id, body.trim(), shared === true ? 1 : 0);
-    res.status(201).json({ id: info.lastInsertRowid, shared: shared === true });
+    res.status(201).json({ id: Number(info.lastInsertRowid), shared: shared === true });
   });
 
   r.put("/diary/:id/share", (req, res) => {

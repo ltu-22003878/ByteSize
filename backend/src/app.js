@@ -5,7 +5,7 @@ const { authRoutes, requireAuth, requireRole } = require("./auth");
 const { studentRoutes } = require("./routes/student");
 const { educatorRoutes } = require("./routes/educator");
 
-function createApp(db, { rateLimiting = true } = {}) {
+function createApp(db, { rateLimiting = true, clock = () => new Date() } = {}) {
   const app = express();
   app.disable("x-powered-by");
   app.use(cors({ origin: process.env.CORS_ORIGIN || "http://localhost:5173" }));
@@ -24,8 +24,8 @@ function createApp(db, { rateLimiting = true } = {}) {
   app.use("/api/auth", authRoutes(db, { authLimiter }));
   // Educator routes are mounted first: the student router below is mounted at
   // /api and would otherwise intercept /api/educator/* and return 403.
-  app.use("/api/educator", requireAuth(db), requireRole("educator", "employer"), educatorRoutes(db));
-  app.use("/api", requireAuth(db), requireRole("student"), studentRoutes(db, { claimLimiter }));
+  app.use("/api/educator", requireAuth(db), requireRole("educator", "employer"), educatorRoutes(db, { clock }));
+  app.use("/api", requireAuth(db), requireRole("student"), studentRoutes(db, { claimLimiter, clock }));
 
   app.use((_req, res) => res.status(404).json({ error: "Not found" }));
   // Never leak stack traces or SQL errors to clients.
