@@ -363,3 +363,62 @@ test("malformed JSON and unknown routes return clean errors", async () => {
   assert.equal((await claim(token, "no_such_activity")).status, 404);
   assert.equal((await claim(token, "daily_checkin", { assignmentId: "abc" })).status, 400);
 });
+
+
+test("student XP ledger and activities are account-scoped and survive API refresh", async () => {
+  const { token } = await newStudent("synced");
+  const other = await newStudent("otherstudent");
+  assert.equal((await ctx.call("GET", "/api/ledger", { token })).body.length, 0);
+  const awarded = await claim(token, "complete_profile");
+  assert.equal(awarded.status, 201);
+  assert.equal(awarded.body.points, 50);
+  const mine = (await ctx.call("GET", "/api/ledger", { token })).body;
+  assert.equal(mine.length, 1);
+  assert.equal(mine[0].balanceAfter, 50);
+  assert.equal((await ctx.call("GET", "/api/me", { token })).body.xpTotal, 50);
+  assert.equal((await ctx.call("GET", "/api/ledger", { token: other.token })).body.length, 0);
+  assert.equal((await claim(token, "complete_profile")).status, 409);
+  assert.equal((await ctx.call("GET", "/api/ledger")).status, 401);
+});
+
+test("Learn progress and XP are committed together and cannot exceed the course total", async () => {
+  const { token } = await newStudent("learner");
+  let courses = (await ctx.call("GET", "/api/courses", { token })).body;
+  assert.equal(courses.find(c => c.id === "co2").modulesDone, 0);
+  const done = await claim(token, "learn_module", { courseId: "co2" });
+  assert.equal(done.status, 201);
+  assert.equal(done.body.points, 50);
+  courses = (await ctx.call("GET", "/api/courses", { token })).body;
+  assert.equal(courses.find(c => c.id === "co2").modulesDone, 1);
+  assert.equal((await ctx.call("GET", "/api/me", { token })).body.xpTotal, 50);
+  assert.equal((await claim(token, "learn_module", { courseId: "nope" })).status, 400);
+  assert.equal((await claim(token, "daily_checkin", { courseId: "co2" })).status, 400);
+  const initial = (await ctx.call("GET", "/api/courses", { token: await ctx.login("priya@example.com", "student-demo-1") })).body;
+  assert.equal(initial.find(c => c.id === "co3").modulesDone, 5);
+});
+
+test("avatar gear remains backward-compatible and high XP items require unlock", async () => {
+  const { token } = await newStudent("wardrobe");
+  const base = { skin: "#e0ac69", hair: "#2b2320", hairStyle: "short", outfit: "#7c3aed", accessory: "none" };
+  assert.equal((await ctx.call("PUT", "/api/me/avatar", { token, body: { ...base, outfitId: "cosmic" } })).status, 400);
+  const saved = await ctx.call("PUT", "/api/me/avatar", { token, body: { ...base, outfitId: "tee" } });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.outfitId, "tee");
+});
+
+
+test("server-awarded XP remains identical after a fresh login and prevents double claims", async () => {
+  const { token } = await newStudent("crosssession");
+  const before = (await ctx.call("GET", "/api/me", { token })).body.xpTotal;
+  const awarded = await claim(token, "complete_profile");
+  assert.equal(awarded.status, 201);
+  const email = ctx.db.prepare("SELECT email FROM users WHERE id = ?").get(
+    Number((await ctx.call("GET", "/api/me", { token })).body.user.id)
+  ).email;
+  const nextToken = await ctx.login(email, "password-123");
+  assert.ok(nextToken, "a fresh login should issue a token");
+  const refreshed = await ctx.call("GET", "/api/me", { token: nextToken });
+  assert.equal(refreshed.body.xpTotal, before + 50);
+  assert.equal((await claim(nextToken, "complete_profile")).status, 409);
+  assert.equal((await ctx.call("GET", "/api/me", { token })).body.xpTotal, before + 50);
+});

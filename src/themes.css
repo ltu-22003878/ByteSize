@@ -1,0 +1,184 @@
+/* Alumable day/night modes. Frontend appearance only; gameplay and backend unchanged. */
+/* Appearance switch (reachable on login, student and partner views). */
+.arcade-theme-toggle {
+ position:fixed;z-index:500;right:22px;bottom:20px;display:inline-flex;align-items:center;gap:9px;
+ padding:12px 17px;border:2px solid #ffce69;background:#10253b;color:#fff0bc;
+ border-radius:999px;box-shadow:0 6px 0 #070e1a,0 10px 24px #0008;
+ font-size:13px;font-weight:850;line-height:1.1;font-family:inherit;letter-spacing:.2px;cursor:pointer;transition:transform .15s,background .2s;
+}
+.arcade-theme-toggle span { font-size:20px;line-height:1; }
+.arcade-theme-toggle:hover { transform:translateY(-2px);background:#25405b; }
+.arcade-theme-toggle:focus-visible { outline:3px solid #ffaa22;outline-offset:4px; }
+/* The large poster is intentionally absent from both the entry page and the dashboard. */
+.login-layout-compact { display:block;width:min(680px,100%);max-width:680px;min-height:0; }
+.login-layout-compact .login-choose-panel { padding:35px 20px 20px; }
+.login-tagline { color:#c0d6e9;font-size:15px;line-height:1.5;margin:12px 0 28px; }
+.login-layout-compact .arcade-kicker { margin-top:6px; }
+.arcade-login .login-layout-compact .arcade-role-card { min-height:102px; }
+.arcade-hero.arcade-hero-no-poster { grid-template-columns:1fr;min-height:0;padding:clamp(30px,4vw,52px); }
+.arcade-hero-no-poster .arcade-hero-copy { max-width:950px; }
+.arcade-hero-no-poster .arcade-hero-glow { right:0;bottom:-350px; }
+.arcade-hero-no-poster h1 { font-size:clamp(36px,4.6vw,68px); }
+.arcade-hero-no-poster .hero-live { margin-top:24px; }
+/* The default styling is the existing arcade night palette. */
+html[data-theme="dark"] { color-scheme:dark; }
+/* Bright parchment-and-sky palette for light mode. Shared theme tokens cover other student pages. */
+html[data-theme="light"] {
+ color-scheme:light;
+ --c-bg:#f1f6fc;--c-surface:#fff;--c-surface-2:#eaf2fb;--c-border:#b6cadc;
+ --c-text:#18324c;--c-text-dim:#395774;--c-text-faint:#5a748e;
+ --c-purple:#956009;--c-purple-dark:#704307;--c-purple-soft:#fff0c7;
+ --c-orange:#bd7008;--c-orange-soft:#fff1d6;
+ --c-green:#13744c;--c-green-soft:#dcf6e8;
+ --c-red:#b33e4d;--c-red-soft:#ffeaee;
+ --shadow:0 5px 22px #2946651f;
+}
+html[data-theme="light"] body { background:radial-gradient(ellipse at 10% 0%,#d7eeff,transparent 50%),radial-gradient(ellipse at 100% 95%,#fff0d3,transparent 45%),#eef5fc;color:#18324c; }
+html[data-theme="light"] .site {
+ --c-bg:#f1f6fc;--c-surface:#fff;--c-surface-2:#eaf2fb;--c-border:#b6cadc;
+ --c-text:#18324c;--c-text-dim:#395774;--c-text-faint:#5a748e;
+ --c-purple:#94601a;--c-purple-dark:#794a0b;--c-purple-soft:#fff0c7;
+ --c-orange:#b96c13;--c-orange-soft:#fff1d6;--c-green:#13744c;--c-green-soft:#dbf6e8;
+ --c-red:#b33e4d;--c-red-soft:#ffeaee;--shadow:0 5px 22px #2946651f;
+ background:transparent;color:#18324c;
+}
+html[data-theme="light"] .arcade-theme-toggle { background:#fff8e7;color:#714309;border-color:#c2892b;box-shadow:0 5px 0 #cda96e,0 9px 20px #243f601f; }
+html[data-theme="light"] .arcade-theme-toggle:hover { background:#ffedc2; }
+/* Navigation */
+html[data-theme="light"] .site-header.arcade-header { background:#fcfdffeb;border-color:#a7bfda;box-shadow:0 5px 20px #23426221; }
+html[data-theme="light"] .arcade-brand { color:#a75a14;text-shadow:none; }
+html[data-theme="light"] .arcade-brand small { color:#536b83; }
+html[data-theme="light"] .arcade-brand .brand-mark { background:#fff7df;border-color:#be8a3b; }
+html[data-theme="light"] .arcade-nav-link { color:#355574; }
+html[data-theme="light"] .arcade-nav-link span { color:#547392; }
+html[data-theme="light"] .arcade-nav-link:hover { background:#e2eefa;color:#1f4d76; }
+html[data-theme="light"] .arcade-nav-link.active { background:#ffedbf;color:#87510c;border-color:#bd913e;box-shadow:none; }
+html[data-theme="light"] .arcade-nav-link.active span { color:#a16d15; }
+html[data-theme="light"] .arcade-xp { background:#fff1d2;color:#84530e;border-color:#ca9d49; }
+html[data-theme="light"] .arcade-xp strong { color:#68420c; }
+html[data-theme="light"] .header-switch { background:#eaf2fc;color:#254969;border-color:#9bb6d1; }
+html[data-theme="light"] .arcade-header .hamburger-btn { background:#eaf2fc;border-color:#aac1d6; }
+html[data-theme="light"] .arcade-header .hamburger-btn span { background:#496680; }
+html[data-theme="light"] .arcade-header .dropdown-menu { background:#fff;border-color:#a5bbd0;box-shadow:0 14px 28px #26436338; }
+html[data-theme="light"] .arcade-header .dropdown-link { color:#2b506b; }
+html[data-theme="light"] .arcade-header .dropdown-link.active,html[data-theme="light"] .arcade-header .dropdown-link:hover { color:#85510c;background:#fff0c7; }
+/* Homepage hero, shortcuts */
+html[data-theme="light"] .arcade-announcement { color:#9b6216; }
+html[data-theme="light"] .announcement-right { color:#557593; }
+html[data-theme="light"] .arcade-hero { background:linear-gradient(115deg,#e2f3ff,#f9fbff 56%,#fff1cf);border-color:#c19a53;box-shadow:0 0 0 4px #ebf3fa,0 0 0 6px #a7bbcf,inset 0 0 0 3px #fff4d8,0 14px 35px #20436220; }
+html[data-theme="light"] .arcade-hero:before { opacity:.12; }
+html[data-theme="light"] .arcade-hero-glow { background:#ffde9959; }
+html[data-theme="light"] .hero-chapter { color:#12677a; }
+html[data-theme="light"] .hero-chapter-line { color:#72879b; }
+html[data-theme="light"] .hero-greeting { color:#9d591a; }
+html[data-theme="light"] .arcade-hero h1 { color:#173953;text-shadow:none; }
+html[data-theme="light"] .arcade-hero h1 span:not(.hero-final-dot) { color:#c47a12;text-shadow:2px 2px #ffdc94; }
+html[data-theme="light"] .hero-description,html[data-theme="light"] .hero-live { color:#3f5d77; }
+html[data-theme="light"] .hero-live strong { color:#96570f; }
+html[data-theme="light"] .arcade-button-outline { background:#f9fdff;color:#184e76;border-color:#4588c4;box-shadow:0 5px 0 #adcce3; }
+html[data-theme="light"] .arcade-shortcut { background:linear-gradient(135deg,#fff0d0,#fffaf0);border-color:#c4923a;box-shadow:inset 0 0 0 2px #ffe4a6,0 6px 0 #d7b777; }
+html[data-theme="light"] .arcade-shortcut.blue { background:linear-gradient(135deg,#dff3ff,#f6fcff);border-color:#4a98bf;box-shadow:inset 0 0 0 2px #c5e4f4,0 6px 0 #b1cdda; }
+html[data-theme="light"] .arcade-shortcut.green { background:linear-gradient(135deg,#dbf7e8,#f3fff8);border-color:#3d9c70;box-shadow:inset 0 0 0 2px #b7e6cf,0 6px 0 #a9d5be; }
+html[data-theme="light"] .arcade-shortcut.red { background:linear-gradient(135deg,#ffe5e8,#fff7f9);border-color:#c76b75;box-shadow:inset 0 0 0 2px #ffd2d7,0 6px 0 #e3bfc3; }
+html[data-theme="light"] .arcade-shortcut:hover { transform:translateY(-3px); }
+html[data-theme="light"] .shortcut-icon { background:#fff7e5;color:#a86914;text-shadow:none; }
+html[data-theme="light"] .arcade-shortcut.blue .shortcut-icon { background:#eafaff;color:#126e9d; }
+html[data-theme="light"] .arcade-shortcut.green .shortcut-icon { background:#ebfff3;color:#237a53; }
+html[data-theme="light"] .arcade-shortcut.red .shortcut-icon { background:#fff1f3;color:#ad4350; }
+html[data-theme="light"] .arcade-shortcut h2 { color:#925b13; }
+html[data-theme="light"] .arcade-shortcut.blue h2 { color:#136d9a; }
+html[data-theme="light"] .arcade-shortcut.green h2 { color:#13764c; }
+html[data-theme="light"] .arcade-shortcut.red h2 { color:#ad4350; }
+html[data-theme="light"] .arcade-shortcut p { color:#445e74; }
+html[data-theme="light"] .shortcut-arrow { color:#845011; }
+/* Dashboard panels */
+html[data-theme="light"] .arcade-box { background:linear-gradient(145deg,#ffffff,#f0f7fe);border-color:#8cabc5;box-shadow:inset 0 0 0 2px #e3f0fb,0 7px 0 #bacdde,0 13px 20px #29486722; }
+html[data-theme="light"] .arcade-box:before,html[data-theme="light"] .arcade-box:after { background:#f5f9ff;color:#b77a19; }
+html[data-theme="light"] .arcade-panel-heading { border-color:#c2d2e1; }
+html[data-theme="light"] .arcade-panel-heading h2,html[data-theme="light"] .player-identity h3,html[data-theme="light"] .arcade-unlock-box h3 { color:#183953; }
+html[data-theme="light"] .panel-eyebrow { color:#45718a; }
+html[data-theme="light"] .arcade-panel-heading a { color:#1d6b91; }
+html[data-theme="light"] .player-identity p,html[data-theme="light"] .player-progress-label,html[data-theme="light"] .progress-next,html[data-theme="light"] .box-explainer,html[data-theme="light"] .arcade-unlock-box p { color:#4b6780; }
+html[data-theme="light"] .player-stats>div { background:#f0f7ff;border-color:#b4cadc; }
+html[data-theme="light"] .player-stats strong { color:#173953; }
+html[data-theme="light"] .player-stats small { color:#4d6c85; }
+html[data-theme="light"] .arcade-progress { background:#d5e5f3;border-color:#82aac8;box-shadow:none; }
+html[data-theme="light"] .player-progress-label strong { color:#a36818; }
+html[data-theme="light"] .arcade-quest { background:#f7fbff;border-color:#c4d7e6; }
+html[data-theme="light"] .quest-desc h3 { color:#1d3b52; }
+html[data-theme="light"] .quest-desc p { color:#56728a; }
+html[data-theme="light"] .quest-claim { background:#fff3da;color:#8c5815;border-color:#c39344; }
+html[data-theme="light"] .quest-claim:disabled { color:#60748a;background:#e6edf4;border-color:#bac8d6; }
+html[data-theme="light"] .quest-points { color:#996211; }
+html[data-theme="light"] .quest-footer { color:#55728a; }
+html[data-theme="light"] .quest-footer a { color:#986019; }
+html[data-theme="light"] .unlock-art { background:radial-gradient(ellipse at bottom,#dceeff,transparent 75%),radial-gradient(ellipse at 50% 30%,#ffedc5,transparent 55%); }
+html[data-theme="light"] .unlock-tag { background:#fff3dc;color:#96621a;border-color:#bf9350; }
+html[data-theme="light"] .unlock-link { color:#8d5812;background:#fff6e4; }
+html[data-theme="light"] .unlock-link:hover { background:#ffedbe; }
+html[data-theme="light"] .arcade-gig,html[data-theme="light"] .arcade-gig.copper,html[data-theme="light"] .arcade-gig.forest { background:linear-gradient(145deg,#f4f8ff,#fff);border-color:#adc5d9; }
+html[data-theme="light"] .arcade-gig.copper { background:linear-gradient(145deg,#fff1db,#fff);border-color:#c5a26e; }
+html[data-theme="light"] .arcade-gig.forest { background:linear-gradient(145deg,#e0f8e8,#fff);border-color:#83b99b; }
+html[data-theme="light"] .arcade-gig h3,html[data-theme="light"] .history-item strong { color:#1c3b54; }
+html[data-theme="light"] .gig-top,html[data-theme="light"] .arcade-gig>p,html[data-theme="light"] .history-item small,html[data-theme="light"] .gigs-disclaimer { color:#57718a; }
+html[data-theme="light"] .gig-top span:last-child,html[data-theme="light"] .gig-bottom strong,html[data-theme="light"] .history-points { color:#9a6316; }
+html[data-theme="light"] .gig-tags span { color:#486985;border-color:#bacede; }
+html[data-theme="light"] .gig-bottom,html[data-theme="light"] .history-item,html[data-theme="light"] .arcade-footer { border-color:#cad8e5; }
+html[data-theme="light"] .gig-bottom a { color:#1a6f9b; }
+html[data-theme="light"] .history-star { background:#fff0d0;color:#a36817;border-color:#c99e59; }
+html[data-theme="light"] .arcade-footer { color:#54748c; }
+/* Other student routes share variable-based widgets and themed panels. */
+html[data-theme="light"] .site .page-title,html[data-theme="light"] .site .greeting-name,html[data-theme="light"] .site .section-heading h2,html[data-theme="light"] .site .subsection-title { color:#183953; }
+html[data-theme="light"] .site .panel,html[data-theme="light"] .site .course-card,html[data-theme="light"] .site .activity-card,html[data-theme="light"] .site .gig-card,html[data-theme="light"] .site .stat-card,html[data-theme="light"] .site .list-row,html[data-theme="light"] .site .unlock-banner { background:#fff;border-color:#b6cada;color:#183953;box-shadow:0 5px 18px #3049671d; }
+html[data-theme="light"] .site .activity-card.claimed { background:#e9faed;border-color:#8cc6a7; }
+html[data-theme="light"] .site .activity-card.assigned { background:linear-gradient(#fff,#fff0ce);border-color:#d5b069; }
+html[data-theme="light"] .site .level-card,html[data-theme="light"] .site .diary-hero { background:linear-gradient(130deg,#fff3d3,#def1ff);border:1px solid #c29a54;color:#20435f; }
+html[data-theme="light"] .site .diary-hero p { color:#3b5c73; }
+html[data-theme="light"] .site .diary-eyebrow { color:#a16915; }
+html[data-theme="light"] .site .diary-panel { background:#fff;color:#1e3e58;border-color:#b7cddd; }
+html[data-theme="light"] .site .diary-entry-top,html[data-theme="light"] .site .diary-entries-heading span,html[data-theme="light"] .site .diary-empty,html[data-theme="light"] .site .diary-form-footer { color:#496881; }
+html[data-theme="light"] .site .diary-secondary { color:#835212;background:#fff1d3;border-color:#d2a663; }
+html[data-theme="light"] .site .pill-xp,html[data-theme="light"] .site .tag-accent,html[data-theme="light"] .site .pixel-tag { background:#fff0ca;color:#915b13;border-color:#d0aa6b; }
+html[data-theme="light"] .site .chip { background:#fff;color:#355671;border-color:#b5cadb; }
+html[data-theme="light"] .site .chip.active { background:#ffebbc;color:#81500a;border-color:#b88d3c; }
+html[data-theme="light"] .site .btn-outline { background:#f4fbff;border-color:#8fb6d4;color:#1c668e; }
+html[data-theme="light"] .site .tag { background:#e9f2fb;color:#3d5971; }
+html[data-theme="light"] .site .wardrobe-item { background:#f3f9ff;color:#274f6f;border-color:#b6cada; }
+html[data-theme="light"] .site .wardrobe-item.equipped { background:#fff0cc;border-color:#d4ab51; }
+html[data-theme="light"] .site .educator-page input,html[data-theme="light"] .site .educator-page select { color:#21445c;background:#fff;border-color:#aac3d6; }
+/* Entrance without artwork */
+html[data-theme="light"] .arcade-login { background:radial-gradient(ellipse at 0% 20%,#d5efff,transparent 47%),radial-gradient(ellipse at 100% 85%,#ffedd0,transparent 42%),#f4f9ff;color:#183953; }
+html[data-theme="light"] .arcade-login-stars { opacity:.15; }
+html[data-theme="light"] .login-topline { color:#b8731b; }
+html[data-theme="light"] .login-topline img { background:#fff4dd;border-color:#c89b52; }
+html[data-theme="light"] .login-topline-tag { color:#526f88;border-color:#b6c9d8; }
+html[data-theme="light"] .login-tagline,html[data-theme="light"] .login-help { color:#426078; }
+html[data-theme="light"] .arcade-kicker { color:#236c88; }
+html[data-theme="light"] .login-choose-panel h2 { color:#183953; }
+html[data-theme="light"] .login-choose-panel h2 span { color:#bb741b; }
+html[data-theme="light"] .arcade-login .arcade-role-card { background:linear-gradient(130deg,#fff0d5,#fff9ee);border-color:#ca9b50;color:#1c3d56;box-shadow:inset 0 0 0 2px #ffebc4,0 5px 0 #d8b57a; }
+html[data-theme="light"] .arcade-login .arcade-role-card.blue { background:linear-gradient(130deg,#e2f4ff,#fafdff);border-color:#70aed2;box-shadow:inset 0 0 0 2px #cde8f9,0 5px 0 #b7d7e9; }
+html[data-theme="light"] .arcade-login .arcade-role-card.green { background:linear-gradient(130deg,#dff8e8,#f7fffa);border-color:#76b997;box-shadow:inset 0 0 0 2px #c8ebd9,0 5px 0 #b6dcc6; }
+html[data-theme="light"] .arcade-login .arcade-role-card:hover { filter:brightness(.97); }
+html[data-theme="light"] .arcade-login .role-symbol { background:#fff8e9;color:#b16f14; }
+html[data-theme="light"] .arcade-login .arcade-role-card.blue .role-symbol { background:#eaf7ff;color:#1b79a5; }
+html[data-theme="light"] .arcade-login .arcade-role-card.green .role-symbol { background:#edfff5;color:#1b8354; }
+html[data-theme="light"] .arcade-login .role-copy strong { color:#1d3e57; }
+html[data-theme="light"] .arcade-login .role-copy small,html[data-theme="light"] .login-note,html[data-theme="light"] .login-copyright { color:#516f86; }
+html[data-theme="light"] .arcade-login .role-number,html[data-theme="light"] .arcade-login .role-arrow { color:#a16c20; }
+html[data-theme="light"] .login-note { border-color:#b2cadd;background:#ffffffc0; }
+/* Partner and educator API portal */
+html[data-theme="light"] .partner-wrap { background:linear-gradient(125deg,#edf7ff,#fff9ed);color:#1e3c55; }
+html[data-theme="light"] .partner-header,html[data-theme="light"] .partner-panel { background:#fff;color:#1e3c55;border-color:#aac3d6;box-shadow:0 8px 20px #2c49621a; }
+html[data-theme="light"] .partner-brand { color:#a86d15; }
+html[data-theme="light"] .partner-brand span { color:#4d718d; }
+html[data-theme="light"] .partner-nav button,html[data-theme="light"] .partner-tile,html[data-theme="light"] .partner-list-button { background:#f4f9fe;color:#1e4864;border-color:#b3cadc; }
+html[data-theme="light"] .partner-nav button.active { background:#ffedc6;border-color:#c49b54;color:#825213; }
+html[data-theme="light"] .partner-nav button:hover,html[data-theme="light"] .partner-tile:hover,html[data-theme="light"] .partner-list-button:hover { background:#e8f1fa; }
+html[data-theme="light"] .partner-panel input:not([type=checkbox]),html[data-theme="light"] .partner-panel textarea,html[data-theme="light"] .partner-panel select,html[data-theme="light"] .partner-login input { background:#fff;color:#1c3e55;border-color:#92b1c9; }
+html[data-theme="light"] .partner-muted { color:#526e83; }
+html[data-theme="light"] .partner-panel a { color:#1c7098; }
+html[data-theme="light"] .partner-panel .partner-criterion { border-color:#c2d4e2; }
+html[data-theme="light"] .partner-panel h1,html[data-theme="light"] .partner-panel h2,html[data-theme="light"] .partner-panel h3 { color:#1e3f5a; }
+html[data-theme="light"] .partner-wrap .btn-outline { background:#f4faff;border-color:#8faec7;color:#285b7b; }
+@media(max-width:620px) { .arcade-theme-toggle { right:12px;bottom:12px;padding:11px 13px;font-size:12px; } .login-layout-compact .login-choose-panel { padding:22px 3px 12px; } .arcade-hero.arcade-hero-no-poster { padding:28px 20px; } }

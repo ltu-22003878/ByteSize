@@ -113,12 +113,27 @@ CREATE TABLE IF NOT EXISTS gig_applications (
   UNIQUE (user_id, gig_id)
 );
 
+CREATE TABLE IF NOT EXISTS messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  sender_id INTEGER NOT NULL REFERENCES users(id),
+  recipient_id INTEGER NOT NULL REFERENCES users(id),
+  body TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS diary_entries (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id),
   body TEXT NOT NULL,
   shared INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS course_progress (
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  course_id TEXT NOT NULL,
+  modules_done INTEGER NOT NULL DEFAULT 0 CHECK(modules_done >= 0),
+  PRIMARY KEY (user_id, course_id)
 );
 
 CREATE TABLE IF NOT EXISTS avatars (
@@ -141,6 +156,9 @@ function openDb(file) {
   const db = new DatabaseSync(target);
   db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
   db.exec(SCHEMA);
+  const gigCols=db.prepare('PRAGMA table_info(gigs)').all().map(c=>c.name);
+  if(!gigCols.includes('owner_id'))db.exec('ALTER TABLE gigs ADD COLUMN owner_id INTEGER REFERENCES users(id)');
+  if(!gigCols.includes('min_level'))db.exec('ALTER TABLE gigs ADD COLUMN min_level INTEGER NOT NULL DEFAULT 1');
   // node:sqlite has no transaction helper, so add a small one: all-or-nothing.
   db.transaction = (fn) => (...args) => {
     db.exec("BEGIN");

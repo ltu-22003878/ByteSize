@@ -36,7 +36,7 @@ export const seedDb = {
       referralCode: "PRIYA-MEL26",
       skills: ["Marketing", "Canva", "Copywriting", "Excel", "Google Analytics"],
       interests: ["Brand design", "Content strategy", "Startups"],
-      avatar: { skin: "#e0ac69", hair: "#2b2320", hairStyle: "short", outfit: "#7c3aed", accessory: "glasses" },
+      avatar: { skin: "#e0ac69", hair: "#2b2320", hairStyle: "short", outfit: "#7c3aed", outfitId: "tee", accessory: "none" },
     },
   ],
 

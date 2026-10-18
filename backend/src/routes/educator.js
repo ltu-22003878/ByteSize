@@ -81,6 +81,11 @@ function educatorRoutes(db, { clock = () => new Date() } = {}) {
 
   r.get("/rubric", onlyEducator, (_req, res) => res.json(PLACEHOLDER_RUBRIC));
 
+  // Read-only catalog for the partner assignment picker.
+  r.get("/activities", (_req, res) => {
+    res.json(db.prepare("SELECT id, title, description, base_xp, active, type FROM activities ORDER BY title").all());
+  });
+
   function slugify(title) {
     return title.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40);
   }
@@ -162,6 +167,21 @@ function educatorRoutes(db, { clock = () => new Date() } = {}) {
     res.json({ updated: keys });
   });
 
+  // Employer-owned gigs. Existing seeded gigs remain visible but cannot be managed by an unrelated employer.
+  r.get('/my-gigs', (req,res) => {
+    if(req.user.role!=='employer')return res.status(403).json({error:'Employers only'});
+    const gigs=db.prepare('SELECT * FROM gigs WHERE owner_id = ? ORDER BY rowid DESC').all(req.user.id);
+    res.json(gigs.map(g=>({...g,applicants:db.prepare(`SELECT ga.id,ga.status,ga.created_at AS createdAt,u.id AS studentId,u.name AS studentName FROM gig_applications ga JOIN users u ON u.id=ga.user_id WHERE ga.gig_id=? ORDER BY ga.id DESC`).all(g.id).map(a=>({...a,...getLevelInfo(totalXp(db,a.studentId))}))})));
+  });
+  r.post('/my-gigs', (req,res) => {
+    if(req.user.role!=='employer')return res.status(403).json({error:'Employers only'});
+    const {title,description,pay,minLevel}=req.body||{};
+    if(typeof title!=='string'||!title.trim()||title.length>120||typeof description!=='string'||description.length>2000||typeof pay!=='string'||pay.length>100||!Number.isInteger(minLevel)||minLevel<1||minLevel>100)return res.status(400).json({error:'Provide a title, description, pay and level (1–100)'});
+    const id='partner_'+req.user.id+'_'+Date.now();
+    const owner=db.prepare('SELECT name FROM users WHERE id=?').get(req.user.id);
+    db.prepare(`INSERT INTO gigs(id,title,poster_name,poster_org,description,tier,timeframe,pay,tags,requires_capability,owner_id,min_level) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`).run(id,title.trim(),owner.name,owner.name,description,'Starter','',pay,'',null,req.user.id,minLevel);
+    res.status(201).json({id});
+  });
   // Students, so an educator or employer can pick who to assign work to.
   r.get("/students", (_req, res) => {
     const rows = db.prepare("SELECT id, name, email FROM users WHERE role = 'student' ORDER BY id").all();
@@ -254,6 +274,8 @@ function educatorRoutes(db, { clock = () => new Date() } = {}) {
 
   // Educator or employer confirms a gig is finished, which frees the student's slot.
   r.post("/gig-applications/:id/complete", (req, res) => {
+    const application=db.prepare('SELECT g.owner_id AS ownerId FROM gig_applications ga JOIN gigs g ON g.id=ga.gig_id WHERE ga.id=?').get(req.params.id);
+    if(req.user.role==='employer' && (!application || application.ownerId!==req.user.id))return res.status(403).json({error:'Not allowed for your role'});
     const info = db.prepare("UPDATE gig_applications SET status = 'completed' WHERE id = ? AND status = 'active'").run(req.params.id);
     if (info.changes === 0) return res.status(404).json({ error: "No active application with that id" });
     audit(db, req.user.id, "gig_complete", `application=${req.params.id}`);
