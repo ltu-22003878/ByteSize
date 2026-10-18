@@ -1,6 +1,7 @@
 import { useStudent } from "./StudentContext";
 import PixelAvatar from "./PixelAvatar";
 import { avatarOptions } from "./db";
+import { wardrobe, isUnlocked, normalizeAvatar } from "./avatarItems";
 
 const labels = { skin: "Skin", hair: "Hair colour", hairStyle: "Hair style", outfit: "Outfit", accessory: "Accessory" };
 const colourKeys = ["skin", "hair", "outfit"];
@@ -8,7 +9,8 @@ const colourKeys = ["skin", "hair", "outfit"];
 export default function Profile() {
   const { user, xp, levelInfo, capabilities, ledger, auditLog, certificates, setAvatar, resetDemo } = useStudent();
   const av = user.avatar;
-  const set = (k, v) => setAvatar({ ...av, [k]: v });
+  const set = (k, v) => setAvatar(normalizeAvatar({ ...av, [k]: v }, xp));
+  const equip = (kind, item) => { if (!isUnlocked(item, xp)) return; setAvatar(normalizeAvatar({ ...av, [kind === "outfit" ? "outfitId" : "accessory"]: item.id }, xp)); };
   const denials = auditLog.filter((a) => a.action === "claim_denied" || a.action === "points_changed").slice(0, 5);
 
   return (
@@ -20,7 +22,7 @@ export default function Profile() {
           <PixelAvatar avatar={av} size={180} />
           <h2 className="profile-name">{user.name}</h2>
           <p className="profile-sub">{user.university}<br />{user.course}</p>
-          <span className="level-badge">🏆 Lv.{levelInfo.level} {levelInfo.title}</span>
+          <span className="level-badge">✦ Lv.{levelInfo.level} {levelInfo.title}</span>
           <div className="xp-hero">
             <div className="xp-hero-value">{xp.toLocaleString()} <small>XP</small></div>
             <div className="progress-track light"><div className="progress-fill" style={{ width: `${levelInfo.pct}%` }} /></div>
@@ -29,8 +31,8 @@ export default function Profile() {
         </div>
 
         <div className="panel">
-          <h2 className="subsection-title" style={{ marginTop: 0 }}>Customise your avatar</h2>
-          {Object.keys(avatarOptions).map((key) => (
+          <h2 className="subsection-title" style={{ marginTop: 0 }}>▣ Avatar studio</h2><p className="muted">Earn XP to unlock gear forever. XP is never spent.</p>
+          {["skin", "hair", "hairStyle"].map((key) => (
             <div className="editor-row" key={key}>
               <span className="editor-label">{labels[key]}</span>
               <div className="editor-options">
@@ -44,6 +46,18 @@ export default function Profile() {
               </div>
             </div>
           ))}
+          {Object.entries(wardrobe).map(([kind, items]) => <section className="wardrobe-section" key={kind}>
+            <h3 className="subsection-title">{kind === "outfit" ? "▦ Outfits" : "✧ Accessories"}</h3>
+            <div className="wardrobe-grid">{items.map(item => {
+              const unlocked = isUnlocked(item, xp);
+              const selected = kind === "outfit" ? (av.outfitId || "tee") === item.id : (av.accessory || "none") === item.id;
+              return <button key={item.id} disabled={!unlocked} onClick={() => equip(kind, item)} className={`wardrobe-item ${selected ? "equipped" : ""} ${unlocked ? "" : "locked"}`} title={unlocked ? `Equip ${item.name}` : `Unlock at ${item.xp} XP`}>
+                <span className="wardrobe-icon" style={{ background: item.color || "#f3effd" }}>{kind === "outfit" ? "▦" : item.id === "none" ? "–" : "✧"}</span>
+                <strong>{item.name}</strong><small>{selected ? "✓ Equipped" : unlocked ? "Unlocked" : `LOCKED · ${item.xp} XP`}</small>
+              </button>;
+            })}</div>
+          </section>)}
+          <p className="muted" style={{marginTop:16,fontSize:12}}>Pixel avatar inspired by <a href="https://www.avatarsinpixels.com/" target="_blank" rel="noreferrer">Avatars in Pixels ↗</a>.</p>
         </div>
       </div>
 
@@ -54,13 +68,13 @@ export default function Profile() {
           <div className="tag-row" style={{ marginTop: 10 }}>{user.interests.map((s) => <span className="tag" key={s}>{s}</span>)}</div>
           <h2 className="subsection-title">Unlocked features</h2>
           {capabilities.map((c) => (
-            <div className="ledger-line" key={c.id}><span>{c.unlocked ? "🔓" : "🔒"} {c.label}</span><span className={c.unlocked ? "pill-done" : "pill-pending"}>{c.unlocked ? "Unlocked" : `Level ${c.minLevel}`}</span></div>
+            <div className="ledger-line" key={c.id}><span>{c.unlocked ? "◇" : "◆"} {c.label}</span><span className={c.unlocked ? "pill-done" : "pill-pending"}>{c.unlocked ? "Unlocked" : `Level ${c.minLevel}`}</span></div>
           ))}
         </div>
         <div className="panel">
-          <h2 className="subsection-title" style={{ marginTop: 0 }}>Certificates</h2>
+          <h2 className="subsection-title" style={{ marginTop: 0 }}>Certificates (sample data)</h2><p className="muted">Illustrative certificate examples, not independently verified by the Alumable API.</p>
           {certificates.map((c) => (
-            <div className="ledger-line" key={c.id}><span>🎖 {c.title}<small className="muted"> · {c.issuer}</small></span><span className={c.status === "verified" ? "pill-done" : "pill-pending"}>{c.status === "verified" ? "Verified" : "Pending"}</span></div>
+            <div className="ledger-line" key={c.id}><span>✦ {c.title}<small className="muted"> · {c.issuer}</small></span><span className={c.status === "verified" ? "pill-done" : "pill-pending"}>{c.status === "verified" ? "Verified" : "Pending"}</span></div>
           ))}
         </div>
       </div>
@@ -85,9 +99,9 @@ export default function Profile() {
       <div className="section-heading"><h2>Fair-play log</h2></div>
       <div className="panel">
         {denials.map((a) => (
-          <div className="ledger-line" key={a.id}><span>🛡️ {a.message}</span><small className="muted">{new Date(a.at).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}</small></div>
+          <div className="ledger-line" key={a.id}><span>▣ {a.message}</span><small className="muted">{new Date(a.at).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}</small></div>
         ))}
-        <button className="btn btn-primary" style={{ width: "auto", padding: "10px 18px" }} onClick={resetDemo}>↺ Reset demo data</button>
+        <button className="btn btn-primary" style={{ width: "auto", padding: "10px 18px" }} onClick={resetDemo}>↻ Refresh account data</button>
       </div>
     </div>
   );

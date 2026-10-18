@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router";
 import { useStudent } from "./StudentContext";
 
 const gigCategories = ["All", "Design", "Writing", "Marketing"];
@@ -20,7 +21,7 @@ function ClaimButton({ check, points, onClick }) {
 
 export default function Earn() {
   const {
-    user, xp, activities, assignments, checkActivity, claim, capabilities, dailyXp, dailyCap,
+    user, xp, activities, assignments, checkActivity, claim, capabilities, dailyXp, dailyCap, busy,
     gigs, applications, toggleApply,
   } = useStudent();
   const [cat, setCat] = useState("All");
@@ -105,7 +106,9 @@ export default function Earn() {
               {a.id === "refer_friend" && (
                 <button className="code-chip" onClick={copyCode}>{user.referralCode} · {copied ? "Copied ✓" : "Copy"}</button>
               )}
-              <ClaimButton check={check} onClick={() => claim(a.id)} />
+              {a.id === 'learn_module'
+                ? <Link className="btn btn-claim" to="/learn">Complete modules in Learn →</Link>
+                : <ClaimButton check={check} onClick={() => claim(a.id)} />}
             </div>
           );
         })}

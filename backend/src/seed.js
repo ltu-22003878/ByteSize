@@ -82,6 +82,13 @@ function seed(db) {
     asg.run(priya, "portfolio_piece", educator, "Add your best marketing case study to your portfolio.", "2026-10-02", 25, now);
     asg.run(priya, "upload_certificate", employer, "Upload a design-related certificate for our gig shortlist.", "2026-10-05", 15, now);
   }
+  // Initialise the new course progress table on both fresh and existing demo databases.
+  // ON CONFLICT preserves modules already completed after an upgrade.
+  const demoStudent = db.prepare("SELECT id FROM users WHERE email = ?").get("priya@example.com");
+  if (demoStudent) {
+    const initProgress = db.prepare("INSERT INTO course_progress (user_id, course_id, modules_done) VALUES (?,?,?) ON CONFLICT(user_id, course_id) DO NOTHING");
+    for (const [courseId, done] of [["co1", 2], ["co2", 0], ["co3", 5], ["co4", 1]]) initProgress.run(demoStudent.id, courseId, done);
+  }
 }
 
 module.exports = { seed };
